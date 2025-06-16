@@ -1,0 +1,1 @@
+Primitive Smart Contract, written in native Rust.
