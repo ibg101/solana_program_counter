@@ -48,7 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Got latest blockhash!");
     tx.sign(&[&payer], blockhash);
 
-    log::info!("Sending transaction!");
     send_tx_and_print_result(&rpc_client, &tx).await?;
 
     // 5. create increment_counter instruction & transaction
@@ -70,6 +69,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 6. sign tx & send increment tx
     tx.sign(&[&payer], blockhash);
     send_tx_and_print_result(&rpc_client, &tx).await?;
+
+    // 7. init recipient
+    let recipient: Keypair = Keypair::new();
+    let recipient_pkey: Pubkey = recipient.pubkey();
+
+    // 8. create close_counter instruction & transaction
+    let close_ix: Instruction = Instruction::new_with_bytes(
+        counter::ID, 
+        &[2], 
+        vec![
+            AccountMeta::new(payer_pkey, true),
+            AccountMeta::new(pda, false),
+            AccountMeta::new(recipient_pkey, false)
+        ]
+    );
+    let message: Message = Message::new(
+        &[close_ix], 
+        Some(&payer_pkey)
+    );
+    let mut close_tx: Transaction = Transaction::new_unsigned(message);
+
+    // 9. sign close tx & send it
+    close_tx.sign(&[&payer], blockhash);
+    send_tx_and_print_result(&rpc_client, &close_tx).await?;
 
     Ok(())
 }
@@ -103,6 +126,7 @@ async fn init_payer(rpc_client: &RpcClient) -> Result<(Keypair, Pubkey), Box<dyn
 }
 
 async fn send_tx_and_print_result(rpc_client: &RpcClient, tx: &Transaction) -> solana_rpc_client_api::client_error::Result<()> {
+    log::info!("Sending transaction!");
     match rpc_client.send_and_confirm_transaction(tx).await {
         Ok(sig) => log::info!("{}", sig),
         Err(e) => log::error!("Error: {}", e)

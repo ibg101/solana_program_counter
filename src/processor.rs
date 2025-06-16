@@ -5,6 +5,7 @@ use solana_program::{
     program::invoke_signed,
     instruction::Instruction,
     system_instruction,
+    system_program,
     pubkey::Pubkey,
     account_info::{AccountInfo, next_account_info},
     entrypoint::ProgramResult,
@@ -31,7 +32,8 @@ impl Processor {
         
         match instruction {
             CounterInstruction::InitializeCounter => Self::process_initialize_counter(program_id, accounts)?,
-            CounterInstruction::IncrementCounter { increment_by } => Self::process_increment_counter(program_id, accounts, increment_by)?
+            CounterInstruction::IncrementCounter { increment_by } => Self::process_increment_counter(program_id, accounts, increment_by)?,
+            CounterInstruction::CloseCounter => Self::process_close_counter(program_id, accounts)?
         };
 
         Ok(())
@@ -126,6 +128,35 @@ impl Processor {
         }
         
         // -------------------------------------
+
+        Ok(())
+    }
+
+    fn process_close_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+        let accounts_iter = &mut accounts.iter();
+
+        let _payer_account: &AccountInfo = next_account_info(accounts_iter)?;
+        let pda_account: &AccountInfo = next_account_info(accounts_iter)?;
+
+        if pda_account.owner != program_id {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+
+        let recipient_account: &AccountInfo = next_account_info(accounts_iter)?;
+
+        // 1. reallocate space (use .resize() instead, but in solana-account-info 2.2.1 it's not available yet)
+        pda_account.realloc(0, true)?;
+        
+        // 2. transfer rent exempt to recipient
+        let pda_balance: u64 = pda_account.lamports();
+        let recipient_balance: u64 = recipient_account.lamports();
+        **recipient_account.lamports.borrow_mut() = recipient_balance
+            .checked_add(pda_balance)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        **pda_account.lamports.borrow_mut() = 0;
+
+        // 3. assign SystemProgram as a new owner
+        pda_account.assign(&system_program::ID);
 
         Ok(())
     }

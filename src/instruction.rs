@@ -4,7 +4,8 @@ use solana_program::program_error::ProgramError;
 /// API for all available instructions.
 pub enum CounterInstruction {
     InitializeCounter,
-    IncrementCounter { increment_by: u64 }
+    IncrementCounter { increment_by: u64 },
+    CloseCounter
 }
 
 impl CounterInstruction {
@@ -19,6 +20,7 @@ impl CounterInstruction {
                 );
                 Self::IncrementCounter { increment_by }
             },
+            2 => Self::CloseCounter,
             _ => return Err(ProgramError::InvalidInstructionData) 
         })
     }
