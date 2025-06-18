@@ -121,10 +121,12 @@ impl Processor {
         let value: u64 = u64::from_le_bytes(
             value_slice.try_into().map_err(|_| ProgramError::InvalidAccountData)?
         );
-        if let Some(_) = value.checked_add(increment_by) {
-            // it may overflow, so do this only after checked_add passes
-            value_slice.copy_from_slice(&increment_by.to_le_bytes());
-            msg!("Incremented manually value!");
+        match value.checked_add(increment_by) {
+            Some(_) => {
+                value_slice.copy_from_slice(&increment_by.to_le_bytes());
+                msg!("Incremented manually value!");
+            },
+            None => return Err(ProgramError::ArithmeticOverflow)
         }
         
         // -------------------------------------
